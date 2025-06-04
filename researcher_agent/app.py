@@ -42,8 +42,10 @@ ROUTING_AGENT_RUNNER = Runner(
 async def get_response_from_agent(
     message: str,
     history: List[gr.ChatMessage],
-) -> AsyncIterator[gr.ChatMessage]:
+) -> List[gr.ChatMessage] :
     """Get response from host agent."""
+    responses = []
+
     try:
         events_iterator: AsyncIterator[Event] = ROUTING_AGENT_RUNNER.run_async(
             user_id=USER_ID,
@@ -56,9 +58,11 @@ async def get_response_from_agent(
                 for part in event.content.parts:
                     if part.function_call:
                         formatted_call = f"```python\n{pformat(part.function_call.model_dump(exclude_none=True), indent=2, width=80)}\n```"
-                        yield gr.ChatMessage(
-                            role="assistant",
-                            content=f"🛠️ **Tool Call: {part.function_call.name}**\n{formatted_call}",
+                        responses.append(
+                            gr.ChatMessage(
+                                role="assistant",
+                                content=f"🛠️ **Tool Call: {part.function_call.name}**\n{formatted_call}",
+                            )
                         )
                     elif part.function_response:
                         response_content = part.function_response.response
@@ -70,10 +74,12 @@ async def get_response_from_agent(
                         else:
                             formatted_response_data = response_content
                         formatted_response = f"```json\n{pformat(formatted_response_data, indent=2, width=80)}\n```"
-                        yield gr.ChatMessage(
+                        responses.append(gr.ChatMessage(
                             role="assistant",
                             content=f"⚡ **Tool Response from {part.function_response.name}**\n{formatted_response}",
-                        )
+                        ))
+
+
             if event.is_final_response():
                 final_response_text = ""
                 if event.content and event.content.parts:
@@ -83,15 +89,20 @@ async def get_response_from_agent(
                 elif event.actions and event.actions.escalate:
                     final_response_text = f"Agent escalated: {event.error_message or 'No specific message.'}"
                 if final_response_text:
-                    yield gr.ChatMessage(role="assistant", content=final_response_text)
+                    responses.append(gr.ChatMessage(role="assistant", content=final_response_text))
                 break
+
+            yield responses
+
     except Exception as e:
         print(f"Error in get_response_from_agent (Type: {type(e)}): {e}")
         traceback.print_exc()  # This will print the full traceback
-        yield gr.ChatMessage(
+        responses.append(gr.ChatMessage(
             role="assistant",
             content="An error occurred while processing your request. Please check the server logs for details.",
-        )
+        ))
+
+    yield responses
 
 
 async def main():
