@@ -10,7 +10,7 @@ from google.adk import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.tools.tool_context import ToolContext
-from .remote_agent_connection import RemoteAgentConnections, TaskUpdateCallback
+from remote_agent_connection import RemoteAgentConnections, TaskUpdateCallback
 from a2a.client import A2ACardResolver
 
 from a2a.types import (
@@ -88,7 +88,6 @@ class RoutingAgent:
                 card_resolver = A2ACardResolver(client, address) # Constructor is sync
                 try:
                     card = await card_resolver.get_agent_card() # get_agent_card is async
-                    
                     remote_connection = RemoteAgentConnections(
                         agent_card=card, agent_url=address
                     )
@@ -123,7 +122,7 @@ class RoutingAgent:
             instruction=self.root_instruction,
             before_model_callback=self.before_model_callback,
             description=(
-                "This Routing agent orchestrates the decomposition of the user asking for weather forecast or airbnb accommodation"
+                "This expert researcher that can learn about topics and create requests to the appropriate researcher remote agents to teach users new concepts."
             ),
             tools=[
                 self.send_message,
@@ -133,21 +132,22 @@ class RoutingAgent:
     def root_instruction(self, context: ReadonlyContext) -> str:
         current_agent = self.check_active_agent(context)
         return f"""
-        **Role:** You are an expert Routing Delegator. Your primary function is to provide a summary and examples of a topic the user wants to learn based on what they enter. First, you should research the topic, then provide teaching materials. The user should see the final teaching materials as the output.
+        You are an expert researcher that can learn about topics and create requests to the
+        appropriate researcher remote agents. Your goal is to accept a topic from a user, route it to an agent that can research and learn about the topic.
+        Then, you need to take all that information and feed it to another agent that can teach it. The final teachable response should be sent to the user.
 
-        **Core Directives:**
-        
-        * **Task Delegation:** Utilize the `send_message` function to assign actionable tasks to remote agents.
-        * **Contextual Awareness for Remote Agents:** If a remote agent repeatedly requests user confirmation, assume it lacks access to the         full conversation history. In such cases, enrich the task description with all necessary contextual information relevant to that         specific agent.
-        * **Autonomous Agent Engagement:** Never seek user permission before engaging with remote agents. If multiple agents are required to         fulfill a request, connect with them directly without requesting user preference or confirmation.
-        * **Transparent Communication:** Always present the complete and detailed response from the remote agent to the user.
-        * **User Confirmation Relay:** If a remote agent asks for confirmation, and the user has not already provided it, relay this         confirmation request to the user.
-        * **Focused Information Sharing:** Provide remote agents with only relevant contextual information. Avoid extraneous details.
-        * **No Redundant Confirmations:** Do not ask remote agents for confirmation of information or actions.
-        * **Tool Reliance:** Strictly rely on available tools to address user requests. Do not generate responses based on assumptions. If         information is insufficient, request clarification from the user.
-        * **Prioritize Recent Interaction:** Focus primarily on the most recent parts of the conversation when processing requests.
-        * **Active Agent Prioritization:** If an active agent is already engaged, route subsequent related requests to that agent using the         appropriate task update tool.
-        
+        Execution:
+        - For actionable tasks, you can use `send_task` to assign tasks to remote agents to perform.
+        - Never ask user permission when you want to connect with remote agents. If you need to make connection with multiple remote agents, directly
+            connect with them without asking user permission or asking user preference
+        - Always show the detailed response information from the researcher agent and propagate it properly to the user.  
+        - If the user already confirmed the related order in the past conversation history, you can confirm on behalf of the user
+
+        Please rely on tools to address the request, and don't make up the response. If you are not sure, please ask the user for more details.
+        Focus on the most recent parts of the conversation primarily.
+
+        If there is an active agent, send the request to that agent with the update task tool.
+
         **Agent Roster:**
         
         * Available Agents: `{self.agents}`
@@ -282,7 +282,7 @@ def _get_initialized_routing_agent_sync():
     async def _async_main():
         routing_agent_instance = await RoutingAgent.create(
             remote_agent_addresses=[
-                os.getenv("SCHOLAR_AGENT_URL", "http://localhost:10001"),
+                os.getenv("SCHOLAR_AGENT_URL", "http://localhost:10000"),
                 os.getenv("TEACHER_AGENT_URL", "http://localhost:10003"),
             ]
         )

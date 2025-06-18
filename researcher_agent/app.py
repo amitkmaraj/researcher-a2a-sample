@@ -16,7 +16,7 @@ limitations under the License.
 
 import gradio as gr
 from typing import List, AsyncIterator
-from agent.agent import (
+from agent import (
     root_agent as routing_agent,
 )  
 from google.adk.sessions import InMemorySessionService

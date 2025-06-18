@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from . import agent
+from .client import A2AClient
+from .card_resolver import A2ACardResolver
 
-__all__ = ["agent"]
+__all__ = ["A2AClient", "A2ACardResolver"]
